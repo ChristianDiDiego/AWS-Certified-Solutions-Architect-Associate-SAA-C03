@@ -3,7 +3,10 @@
 **Date:** March 2, 2026  
 **Score:** 42/65 (64.62%) - ❌ **FAILED**  
 **Time Taken:** Not recorded  
-**Status:** Below passing threshold
+**Status:** Below passing threshold  
+**Passing Score:** 72% (need 47/65 correct)
+
+---
 
 ---
 

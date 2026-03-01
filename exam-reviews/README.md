@@ -8,42 +8,49 @@ This directory contains practice test reviews and study materials for the AWS SA
 
 ## 📖 Quick Navigation
 
-### 🎯 Start Here
-**[MASTER-SUMMARY.md](./MASTER-SUMMARY.md)** - Complete overview of all 5 practice tests
-- Performance trends and analysis
-- Consolidated weak areas across all tests
-- Comprehensive study plan with priorities
-- 7-day intensive study schedule
-- Quick reference for common mistakes
+### 🎯 **START HERE - Most Important Documents**
+
+1. **[EXAM-PROGRESS-SUMMARY.md](./EXAM-PROGRESS-SUMMARY.md)** ⭐ **NEW - Overview of All 5 Tests**
+   - Performance trends across all tests
+   - Domain-by-domain comparison
+   - Critical weakness patterns
+   - Prioritized study recommendations
+   - Action plan for Test 6
+   - ⏱️ **Reading time: ~15 minutes**
+
+2. **[MASTER-SUMMARY.md](./MASTER-SUMMARY.md)** - Detailed analysis with study plan
+   - Consolidated weak areas across all tests
+   - Comprehensive 7-day study schedule
+   - Quick reference for common mistakes
+   - ⏱️ **Reading time: ~20 minutes**
 
 ---
 
-## 📝 Individual Test Reviews (Standardized Format)
+## 📝 Individual Test Reviews
 
-All full reviews now follow a consistent structure:
-- **Clear Header:** Date, score, time, status
-- **Performance Summary:** Concise metrics table
-- **Domain Analysis:** Organized by topic with visual indicators
-- **Incorrect Questions:** Detailed explanations of mistakes
-- **Key Takeaways:** Actionable study focus areas
+**Choose Your Format:**
+- **Quick Review** (⏱️ 8-15 min) - Perfect for rapid revision
+- **Full Review** (⏱️ 20-30 min) - Deep dive into every mistake
 
-### Quick Review Format (Recommended - Fast Reading)
-Perfect for quick review sessions and exam prep:
+### Test 1 - Score: 42/65 (64.62%) ❌ FAIL
+- **Quick:** [Practice-Test-1-Quick-Review.md](./Practice-Test-1-Quick-Review.md) ⏱️ 10 min
+- **Full:** [2026-03-02-Practice-Test-1-Review.md](./2026-03-02-Practice-Test-1-Review.md) ⏱️ 25 min
 
-1. **[Practice-Test-1-Quick-Review.md](./Practice-Test-1-Quick-Review.md)** - Score: 64.62% ❌
-   - ⏱️ **Reading time: ~10 minutes**
+### Test 2 - Score: 49/65 (75.38%) ⚠️ BORDERLINE
+- **Quick:** [Practice-Test-2-Quick-Review.md](./Practice-Test-2-Quick-Review.md) ⏱️ 8 min
+- **Full:** [2026-03-02-Practice-Test-2-Review.md](./2026-03-02-Practice-Test-2-Review.md) ⏱️ 20 min
 
-2. **[Practice-Test-2-Quick-Review.md](./Practice-Test-2-Quick-Review.md)** - Score: 75.38% ⚠️
-   - ⏱️ **Reading time: ~8 minutes**
+### Test 3 - Score: 52/65 (80.00%) ✅ PASS
+- **Quick:** [Practice-Test-3-Quick-Review.md](./Practice-Test-3-Quick-Review.md) ⏱️ 10 min
+- **Full:** [2026-03-01-Practice-Test-3-Review.md](./2026-03-01-Practice-Test-3-Review.md) ⏱️ 22 min
 
-3. **[Practice-Test-3-Quick-Review.md](./Practice-Test-3-Quick-Review.md)** - Score: 80.00% ✅
-   - ⏱️ **Reading time: ~10 minutes**
+### Test 4 - Score: 49/65 (75.38%) ⚠️ BORDERLINE
+- **Quick:** [Practice-Test-4-Quick-Review.md](./Practice-Test-4-Quick-Review.md) ⏱️ 12 min
+- **Full:** [2026-03-01-Practice-Test-4-Review.md](./2026-03-01-Practice-Test-4-Review.md) ⏱️ 18 min
 
-4. **[Practice-Test-4-Quick-Review.md](./Practice-Test-4-Quick-Review.md)** - Score: 75.38% ⚠️
-   - ⏱️ **Reading time: ~12 minutes**
-
-5. **[Practice-Test-5-Quick-Review.md](./Practice-Test-5-Quick-Review.md)** - Score: 64.62% ❌
-   - ⏱️ **Reading time: ~15 minutes**
+### Test 5 - Score: 42/65 (64.62%) ❌ FAIL
+- **Quick:** [Practice-Test-5-Quick-Review.md](./Practice-Test-5-Quick-Review.md) ⏱️ 15 min
+- **Full:** [2026-03-02-Practice-Test-5-Review.md](./2026-03-02-Practice-Test-5-Review.md) ⏱️ 30 min
 
 ---
 

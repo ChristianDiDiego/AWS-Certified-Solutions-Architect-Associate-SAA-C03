@@ -3,7 +3,10 @@
 **Date:** March 2, 2026  
 **Score:** 49/65 (75.38%) - ⚠️ **BORDERLINE PASS**  
 **Time Taken:** Not recorded  
-**Status:** Just above passing threshold
+**Status:** Above passing threshold but needs improvement  
+**Passing Score:** 72% (need 47/65 correct)
+
+---
 
 ---
 

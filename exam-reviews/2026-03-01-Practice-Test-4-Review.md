@@ -3,7 +3,10 @@
 **Date:** March 1, 2026  
 **Score:** 49/65 (75.38%) - ⚠️ **BORDERLINE PASS**  
 **Time Taken:** 98 minutes 56 seconds  
-**Status:** Above passing threshold but needs improvement
+**Status:** Above passing threshold but needs improvement  
+**Passing Score:** 72% (need 47/65 correct)
+
+---
 
 ---
 
