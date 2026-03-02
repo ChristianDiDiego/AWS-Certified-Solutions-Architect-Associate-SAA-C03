@@ -43,59 +43,579 @@
 
 ## ❌ Incorrect Questions - Detailed Review
 
-### 1. Question 4: S3 Glacier to Intelligent-Tiering Migration
+---
+
+### ❌ Question 4: S3 Glacier to Intelligent-Tiering Migration
+
+**📋 COMPLETE QUESTION:**
+A media company has 500 TB of archived video files in S3 Glacier Deep Archive that were uploaded 2 years ago. The marketing team now needs to frequently access these videos for a new campaign. The company wants to move these files to S3 Intelligent-Tiering for automatic cost optimization based on access patterns. What is the correct migration approach?
+
 **Domain:** Design Cost-Optimized Architectures  
-**Status:** ❌ Incorrect (Marked for Review)
+**Your Answer:** ❌ Change the bucket's default storage class to Intelligent-Tiering so existing objects are automatically migrated
+**Correct Answer:** ✅ **Restore objects from Glacier Deep Archive, copy them to Intelligent-Tiering while restoration is active, then delete archived versions**
 
-**Question Summary:**
-A media company wants to move archived videos from S3 Glacier Deep Archive to S3 Intelligent-Tiering for re-use.
+**🔍 DETAILED EXPLANATION:**
 
-**Your Answer:**
-- Change the bucket's default storage class to Intelligent-Tiering so existing objects are automatically migrated
+**Why Your Answer Was Wrong:**
 
-**Correct Answer:**
-- Restore objects from Glacier Deep Archive in the S3 console, copy them into Intelligent-Tiering while the temporary restore is active, then delete old archived versions
+```
+MISCONCEPTION: Changing bucket default storage class affects existing objects
+┌────────────────────────────────────────────────────┐
+│  Bucket Default Storage Class                      │
+│  ┌──────────────────────────────────────┐          │
+│  │  Default: S3 Intelligent-Tiering     │          │
+│  └──────────────────────────────────────┘          │
+│             │                                       │
+│             │ Only affects...                       │
+│             ▼                                       │
+│  ┌──────────────────────────────────────┐          │
+│  │  NEW uploads after this change       │          │
+│  └──────────────────────────────────────┘          │
+│                                                     │
+│  ❌ Does NOT affect:                                │
+│  ┌──────────────────────────────────────┐          │
+│  │  Existing objects in Glacier         │          │
+│  │  (Remain in Glacier Deep Archive)    │          │
+│  └──────────────────────────────────────┘          │
+└────────────────────────────────────────────────────┘
+```
 
-**Why You Got It Wrong:**
-- Changing bucket default storage class only affects NEW uploads, not existing objects
-- Glacier Deep Archive objects cannot be directly copied without restoration first
+**S3 Storage Class Transition Rules:**
 
-**Key Learning Points:**
-- ⚠️ S3 Glacier restoration is required before changing storage class
-- ⚠️ Bucket default storage class ≠ existing object migration
-- ⚠️ Restore → Copy → Delete workflow for Glacier objects
+```
+┌──────────────────────────────────────────────────────┐
+│       S3 STORAGE CLASS TRANSITION RULES              │
+├──────────────────────────────────────────────────────┤
+│                                                       │
+│  Standard → Intelligent-Tiering ✅ Direct            │
+│  Standard → Standard-IA ✅ Direct (30 days min)      │
+│  Standard → Glacier ✅ Direct (30 days min)          │
+│                                                       │
+│  Glacier Deep Archive → Other classes ❌ BLOCKED     │
+│                 │                                     │
+│                 │ MUST restore first                  │
+│                 ▼                                     │
+│  Glacier Deep Archive → Temporary Restore → Copy     │
+│                                                       │
+└──────────────────────────────────────────────────────┘
+```
 
-**Study Resources:**
-- [Module 04: Storage - S3 Storage Classes](../04-Storage/README.md)
-- [AWS Docs: Restoring Objects](https://docs.aws.amazon.com/AmazonS3/latest/userguide/restoring-objects.html)
+**Correct Migration Process:**
+
+**Step-by-Step Workflow:**
+
+```
+┌──────────────────────────────────────────────────────────┐
+│    GLACIER DEEP ARCHIVE → INTELLIGENT-TIERING            │
+├──────────────────────────────────────────────────────────┤
+│                                                           │
+│  STEP 1: Initiate Restore (Retrieval)                    │
+│  ┌─────────────────────────────────────────┐             │
+│  │  Glacier Deep Archive                   │             │
+│  │  └─ video1.mp4 (archived)               │             │
+│  │  └─ video2.mp4 (archived)               │             │
+│  └──────────────┬──────────────────────────┘             │
+│                 │ Restore (12-48 hours)                   │
+│                 ▼                                         │
+│  STEP 2: Temporary Accessible Copy                       │
+│  ┌─────────────────────────────────────────┐             │
+│  │  Temporary restored copies               │             │
+│  │  └─ video1.mp4 (accessible 1-365 days) │             │
+│  │  └─ video2.mp4 (accessible 1-365 days) │             │
+│  │                                          │             │
+│  │  Original still in Glacier ✓            │             │
+│  └──────────────┬──────────────────────────┘             │
+│                 │ Copy to new storage class               │
+│                 ▼                                         │
+│  STEP 3: Copy to Intelligent-Tiering                     │
+│  ┌─────────────────────────────────────────┐             │
+│  │  Intelligent-Tiering                     │             │
+│  │  └─ video1.mp4 (new copy)               │             │
+│  │  └─ video2.mp4 (new copy)               │             │
+│  └──────────────┬──────────────────────────┘             │
+│                 │                                         │
+│                 ▼                                         │
+│  STEP 4: Delete Glacier Copies (Optional)               │
+│  ┌─────────────────────────────────────────┐             │
+│  │  Delete original Glacier versions        │             │
+│  │  to avoid duplicate storage costs        │             │
+│  └─────────────────────────────────────────┘             │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Detailed Restore Options:**
+
+| Restore Tier | Retrieval Time | Cost (per GB) | Use Case |
+|--------------|----------------|---------------|----------|
+| **Standard** | 12-48 hours | $0.02 | Default, cost-effective |
+| **Bulk** | 48 hours | $0.0025 | Large datasets, lowest cost |
+| **Expedited** | N/A for Deep Archive | N/A | Not available for Deep Archive |
+
+**AWS Console Steps:**
+
+```
+1. Navigate to S3 Console
+   └─ Select bucket with Glacier Deep Archive objects
+
+2. Select Objects to Restore
+   ├─ Check boxes next to objects
+   └─ Can select multiple objects
+
+3. Click "Actions" → "Restore from Glacier"
+   ├─ Number of days: 1-365 (how long accessible)
+   │  Example: 30 days
+   ├─ Retrieval tier: Standard or Bulk
+   │  Choose: Standard (12-48 hours)
+   └─ Click "Restore"
+
+4. Wait for Restoration (12-48 hours)
+   ├─ Status shows "Restoration in progress"
+   └─ Email notification when complete (optional)
+
+5. Once Restored, Copy Objects
+   ├─ Select restored objects
+   ├─ Actions → "Copy"
+   ├─ Destination bucket: Same or different
+   ├─ Storage class: Intelligent-Tiering ✅
+   └─ Click "Copy"
+
+6. Delete Glacier Versions (Optional)
+   ├─ Select original Glacier objects
+   ├─ Actions → "Delete"
+   └─ Confirm deletion
+```
+
+**AWS CLI Commands:**
+
+**Step 1: Initiate Restore**
+```bash
+# Restore single object
+aws s3api restore-object \
+  --bucket media-archive \
+  --key videos/video1.mp4 \
+  --restore-request '{
+    "Days": 30,
+    "GlacierJobParameters": {
+      "Tier": "Standard"
+    }
+  }'
+
+# Restore multiple objects (script)
+for key in $(aws s3api list-objects-v2 \
+  --bucket media-archive \
+  --query 'Contents[].Key' \
+  --output text); do
+  aws s3api restore-object \
+    --bucket media-archive \
+    --key "$key" \
+    --restore-request '{"Days":30,"GlacierJobParameters":{"Tier":"Standard"}}'
+done
+```
+
+**Step 2: Check Restore Status**
+```bash
+aws s3api head-object \
+  --bucket media-archive \
+  --key videos/video1.mp4 \
+  --query 'Restore'
+
+# Output:
+# ongoing-request="false", expiry-date="Mon, 01 Apr 2026 00:00:00 GMT"
+# (means restoration complete)
+```
+
+**Step 3: Copy to Intelligent-Tiering**
+```bash
+# Copy single object
+aws s3 cp \
+  s3://media-archive/videos/video1.mp4 \
+  s3://media-archive/videos/video1.mp4 \
+  --storage-class INTELLIGENT_TIERING \
+  --metadata-directive COPY
+
+# Copy all objects (batch)
+aws s3 sync \
+  s3://media-archive/videos/ \
+  s3://media-archive/videos-intelligent-tiering/ \
+  --storage-class INTELLIGENT_TIERING
+```
+
+**Step 4: Delete Glacier Versions**
+```bash
+# Delete after successful copy
+aws s3 rm s3://media-archive/videos/video1.mp4
+```
+
+**Cost Analysis for 500 TB Migration:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Cost Calculation (500 TB = 512,000 GB)            │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  Restore Cost (Standard Tier):                      │
+│  512,000 GB × $0.02/GB = $10,240                    │
+│                                                      │
+│  Temporary Storage (30 days):                       │
+│  512,000 GB × $0.004/GB/month = $2,048              │
+│                                                      │
+│  Data Transfer (same region): FREE                  │
+│                                                      │
+│  Intelligent-Tiering Storage (ongoing):             │
+│  512,000 GB × $0.023/GB/month = $11,776/month       │
+│  (Frequent Access tier)                             │
+│                                                      │
+│  Total Migration Cost: ~$12,288                     │
+│  Monthly Cost After Migration: $11,776              │
+│                                                      │
+└─────────────────────────────────────────────────────┘
+```
+
+**Alternative Methods (NOT Recommended):**
+
+**❌ Method 1: Lifecycle Policy**
+```yaml
+# This WON'T work for Glacier → Intelligent-Tiering
+LifecycleRule:
+  Status: Enabled
+  Transitions:
+    - StorageClass: INTELLIGENT_TIERING
+      Days: 0
+      
+# ❌ Lifecycle can't transition FROM Glacier
+# ✅ Only transitions TO Glacier-class storage
+```
+
+**❌ Method 2: S3 Batch Operations WITHOUT Restore**
+```
+# This will FAIL - must restore first
+S3 Batch Operations:
+  Operation: Copy
+  StorageClass: INTELLIGENT_TIERING
+  
+# ❌ Cannot copy Glacier objects without restoration
+```
+
+**✅ Method 3: S3 Batch Operations WITH Restore (VALID):**
+```
+Step 1: S3 Batch Operations - Restore from Glacier
+  └─ Restore all objects (12-48 hours)
+
+Step 2: S3 Batch Operations - Copy
+  └─ Copy restored objects to Intelligent-Tiering
+
+Step 3: S3 Batch Operations - Delete (optional)
+  └─ Delete Glacier versions
+```
+
+**S3 Storage Class Comparison:**
+
+| Storage Class | Access Time | Min Storage Duration | Cost/GB/Month | Use Case |
+|---------------|-------------|---------------------|---------------|----------|
+| **Standard** | Immediate | None | $0.023 | Frequently accessed |
+| **Intelligent-Tiering** | Immediate | None | $0.023 (Frequent) | Unknown/changing access |
+| **Standard-IA** | Immediate | 30 days | $0.0125 | Infrequent access |
+| **Glacier Instant** | Immediate | 90 days | $0.004 | Archive, immediate retrieval |
+| **Glacier Flexible** | Minutes-12 hrs | 90 days | $0.0036 | Archive, flexible retrieval |
+| **Glacier Deep Archive** | 12-48 hours | 180 days | $0.00099 | Long-term archive |
+
+**Decision Flowchart:**
+
+```
+Need to migrate from Glacier Deep Archive?
+│
+├─ To Glacier Flexible? ──► Direct transition ✅ (lifecycle policy)
+│
+├─ To Standard/IA/Intelligent-Tiering?
+│   └─► Must restore → copy → delete ✅
+│
+└─ Want automatic migration? ──► NOT POSSIBLE ❌
+    └─ Glacier requires manual restore process
+```
+
+**🎯 KEY TAKEAWAYS:**
+- ✅ Glacier Deep Archive objects MUST be restored before changing storage class
+- ✅ Restoration creates temporary copy (1-365 days accessible)
+- ✅ Copy restored objects to target storage class, then delete Glacier version
+- ✅ Restoration takes 12-48 hours for Deep Archive
+- ❌ Changing bucket default storage class does NOT affect existing objects
+- ❌ Lifecycle policies cannot transition FROM Glacier classes
+- ❌ Cannot directly change storage class of archived objects
+
+**💡 MEMORY AID:** "GDR = Glacier Definitely Requires (restore before moving)"
 
 ---
 
-### 2. Question 7: S3 Storage for Multi-Tenant Transcription Platform
+### ❌ Question 7: S3 Storage for Multi-Tenant Transcription Platform
+
+**📋 COMPLETE QUESTION:**
+A company is building a multi-tenant transcription platform. Customers upload audio files, and the platform stores both the audio and generated transcripts. Files need to be:
+- Highly durable (99.999999999%)
+- Frequently accessed by customers
+- Scalable to millions of files
+- Cost-effective for frequent access
+
+What is the most appropriate storage solution?
+
 **Domain:** Design Cost-Optimized Architectures  
-**Status:** ❌ Incorrect (Marked for Review)
+**Your Answer:** ❌ Archive files in S3 Glacier vault to minimize storage cost
+**Correct Answer:** ✅ **Store audio and text files as objects in Amazon S3 Standard**
 
-**Question Summary:**
-A transcription platform needs highly durable, scalable storage for audio files and transcripts with frequent access.
+**🔍 DETAILED EXPLANATION:**
 
-**Your Answer:**
-- Archive files in S3 Glacier vault to minimize storage cost
+**Why Your Answer Was Wrong:**
 
-**Correct Answer:**
-- Store audio and text files as objects in an Amazon S3 bucket
+```
+❌ Glacier is for ARCHIVAL (infrequent access)
+┌────────────────────────────────────────┐
+│  S3 Glacier                            │
+│  ├─ Access time: 1-12 hours retrieval │  ⚠️ NOT immediate
+│  ├─ Cost: $0.004/GB/month              │  ✅ Cheap storage
+│  ├─ Retrieval cost: $0.02-0.03/GB     │  ⚠️ Expensive to access
+│  └─ Use case: Long-term archive       │  ❌ Not frequent access
+└────────────────────────────────────────┘
 
-**Why You Got It Wrong:**
-- Glacier is for infrequent access/archival, not frequent access
-- Requirement stated "frequently access" - Glacier has retrieval delays
+Requirement: "Frequently access"
+Glacier retrieval: Minutes to hours
+Result: Poor user experience ❌
+```
 
-**Key Learning Points:**
-- 🎯 S3 Standard = frequent access, high durability
-- 🎯 S3 Glacier = archival, infrequent access, retrieval delays
-- 🎯 Read requirements carefully: "frequent access" keyword
+**Storage Class Selection Based on Access Pattern:**
 
-**Study Resources:**
-- [Module 04: Storage - S3 Storage Classes Decision](../04-Storage/README.md)
-- [Module 13: Cost Optimization - Storage Pricing](../13-Cost-Optimization/README.md)
+```
+┌────────────────────────────────────────────────────────┐
+│        S3 STORAGE CLASS DECISION TREE                  │
+├────────────────────────────────────────────────────────┤
+│                                                         │
+│  How often will data be accessed?                      │
+│                                                         │
+│  ├─ Multiple times per week ─────► S3 Standard ✅      │
+│  │   • Immediate access                                │
+│  │   • No retrieval fees                               │
+│  │   • Best for frequent access                        │
+│  │   • $0.023/GB/month                                 │
+│  │                                                      │
+│  ├─ Once per month ───────────────► S3 Standard-IA     │
+│  │   • Immediate access                                │
+│  │   • Retrieval fee: $0.01/GB                         │
+│  │   • 30-day minimum storage                          │
+│  │   • $0.0125/GB/month                                │
+│  │                                                      │
+│  ├─ Unknown/changing patterns ────► S3 Intelligent-    │
+│  │                                    Tiering           │
+│  │   • Automatic tiering                               │
+│  │   • Monitors access patterns                        │
+│  │   • Moves between tiers                             │
+│  │   • $0.023/GB (Frequent) + monitoring fee           │
+│  │                                                      │
+│  ├─ Few times per year ───────────► S3 Glacier         │
+│  │   • 1-12 hour retrieval                             │
+│  │   • $0.004/GB/month                                 │
+│  │   • Retrieval cost applies                          │
+│  │                                                      │
+│  └─ Rarely (compliance/backup) ───► S3 Glacier Deep    │
+│      • 12-48 hour retrieval         Archive            │
+│      • $0.00099/GB/month                               │
+│      • Lowest cost storage                             │
+│                                                         │
+└────────────────────────────────────────────────────────┘
+```
+
+**Requirement Analysis:**
+
+| Requirement | S3 Standard | S3 Glacier | Winner |
+|-------------|-------------|------------|--------|
+| **Durability** | 99.999999999% (11 nines) | 99.999999999% (11 nines) | ✅ Tie |
+| **Frequent Access** | Immediate, no wait | 1-12 hours retrieval | ✅ S3 Standard |
+| **Scalability** | Unlimited objects | Unlimited objects | ✅ Tie |
+| **Access Cost** | FREE retrieval | $0.02-0.03/GB retrieval | ✅ S3 Standard |
+| **User Experience** | Instant download | Wait hours for restore | ✅ S3 Standard |
+| **Storage Cost** | $0.023/GB/month | $0.004/GB/month | ✅ Glacier |
+
+**Decision:** S3 Standard wins 4 out of 6 criteria (frequent access requirement is KEY)
+
+**Complete Architecture:**
+
+```
+┌──────────────────────────────────────────────────────┐
+│      TRANSCRIPTION PLATFORM ARCHITECTURE             │
+├──────────────────────────────────────────────────────┤
+│                                                       │
+│  Customer Upload                                      │
+│       │                                               │
+│       ▼                                               │
+│  ┌─────────────────┐                                 │
+│  │   CloudFront    │  (CDN for uploads/downloads)    │
+│  └────────┬────────┘                                 │
+│           │                                           │
+│           ▼                                           │
+│  ┌─────────────────┐                                 │
+│  │   API Gateway   │                                 │
+│  └────────┬────────┘                                 │
+│           │                                           │
+│           ▼                                           │
+│  ┌─────────────────┐                                 │
+│  │     Lambda      │  (Generate presigned URLs)      │
+│  └────────┬────────┘                                 │
+│           │                                           │
+│           ▼                                           │
+│  ┌─────────────────────────────────────┐             │
+│  │         S3 Standard                 │             │
+│  ├─────────────────────────────────────┤             │
+│  │  Bucket: transcription-files        │             │
+│  │                                     │             │
+│  │  /tenant-123/                       │             │
+│  │    /audio/                          │             │
+│  │      meeting-001.mp3 ✅             │             │
+│  │      interview-045.wav ✅           │             │
+│  │    /transcripts/                    │             │
+│  │      meeting-001.txt ✅             │             │
+│  │      interview-045.txt ✅           │             │
+│  │                                     │             │
+│  │  /tenant-456/                       │             │
+│  │    /audio/...                       │             │
+│  │    /transcripts/...                 │             │
+│  │                                     │             │
+│  │  Properties:                        │             │
+│  │  - Storage Class: Standard          │             │
+│  │  - Versioning: Enabled              │             │
+│  │  - Encryption: SSE-S3               │             │
+│  │  - Lifecycle: Move to IA after      │             │
+│  │    90 days of no access             │             │
+│  └─────────────────────────────────────┘             │
+│           │                                           │
+│           │ Trigger on upload                         │
+│           ▼                                           │
+│  ┌─────────────────┐                                 │
+│  │ Transcription   │                                 │
+│  │ Lambda/ECS      │                                 │
+│  └─────────────────┘                                 │
+│                                                       │
+└──────────────────────────────────────────────────────┘
+```
+
+**Cost Optimization Strategy:**
+
+```
+┌────────────────────────────────────────────────────┐
+│       INTELLIGENT LIFECYCLE POLICY                 │
+├────────────────────────────────────────────────────┤
+│                                                     │
+│  Day 0-90: S3 Standard                             │
+│  ┌──────────────────────────────┐                  │
+│  │ Files frequently accessed     │                  │
+│  │ Cost: $0.023/GB/month         │                  │
+│  │ Access: FREE                  │                  │
+│  └──────────────┬────────────────┘                  │
+│                 │ After 90 days no access           │
+│                 ▼                                   │
+│  Day 90+: S3 Standard-IA                           │
+│  ┌──────────────────────────────┐                  │
+│  │ Less frequently accessed      │                  │
+│  │ Cost: $0.0125/GB/month        │                  │
+│  │ Access: $0.01/GB retrieval    │                  │
+│  └──────────────┬────────────────┘                  │
+│                 │ After 180 days no access          │
+│                 ▼                                   │
+│  Day 270+: S3 Glacier Flexible                     │
+│  ┌──────────────────────────────┐                  │
+│  │ Rarely accessed (archive)     │                  │
+│  │ Cost: $0.0036/GB/month        │                  │
+│  │ Access: Minutes-12 hours      │                  │
+│  └──────────────────────────────┘                  │
+│                                                     │
+└────────────────────────────────────────────────────┘
+```
+
+**Lifecycle Policy Configuration:**
+
+```json
+{
+  "Rules": [
+    {
+      "Id": "TransitionOldFiles",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": ""
+      },
+      "Transitions": [
+        {
+          "Days": 90,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 270,
+          "StorageClass": "GLACIER"
+        }
+      ],
+      "NoncurrentVersionTransitions": [
+        {
+          "NoncurrentDays": 30,
+          "StorageClass": "GLACIER"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Real-World Access Pattern:**
+
+```
+Multi-Tenant Transcription Platform Usage:
+
+Week 1 after upload:
+├─ Access frequency: 50 times
+├─ User downloads transcript
+├─ Shares with team
+└─ Makes corrections
+
+Month 2-3:
+├─ Access frequency: 5-10 times
+├─ Occasional reference
+└─ Still needs immediate access
+
+Month 4+:
+├─ Access frequency: 0-2 times
+├─ Can tolerate slight delay
+└─ Move to Standard-IA
+
+Year 1+:
+├─ Access frequency: < once/year
+├─ Compliance/audit only
+└─ Move to Glacier
+```
+
+**Storage Cost Comparison (1000 GB, 1 year):**
+
+| Storage Class | Monthly Cost | Annual Cost | Retrieval Cost (100 GB) | Total |
+|---------------|-------------|-------------|------------------------|-------|
+| **S3 Standard** | $23.00 | $276.00 | $0.00 | $276.00 |
+| **S3 Standard-IA** | $12.50 | $150.00 | $1.00 per retrieval | $150+ |
+| **S3 Intelligent-Tiering** | ~$20.00 | ~$240.00 | $0.00 | $240.00 |
+| **S3 Glacier** | $4.00 | $48.00 | $2.00-3.00 per retrieval | $48+ |
+| **Glacier Deep Archive** | $0.99 | $11.88 | $2.00-3.00 per retrieval | $11.88+ |
+
+**For Frequent Access:** S3 Standard is most cost-effective (no retrieval fees!)
+
+**🎯 KEY TAKEAWAYS:**
+- ✅ **S3 Standard** = Frequent access, immediate retrieval, NO retrieval fees
+- ✅ "Frequently accessed" keyword = Use S3 Standard
+- ✅ S3 provides 99.999999999% durability (same as Glacier)
+- ✅ Use lifecycle policies to transition old files to cheaper storage
+- ❌ **Glacier** = Archive/infrequent access (minutes to hours retrieval delay)
+- ❌ Glacier has retrieval costs that add up with frequent access
+- ❌ Don't optimize for storage cost when access cost is higher
+
+**💡 MEMORY AID:** "Frequent Access = Standard Storage (FAST)"
+
+**Exam Keywords to Watch:**
+- "Frequently accessed" → S3 Standard ✅
+- "Immediate access required" → S3 Standard ✅  
+- "Infrequently accessed" → S3 Standard-IA
+- "Archival" → S3 Glacier
+- "Long-term backup" → S3 Glacier Deep Archive
 
 ---
 

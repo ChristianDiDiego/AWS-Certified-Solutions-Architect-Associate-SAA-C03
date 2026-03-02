@@ -65,39 +65,327 @@ Design Cost-Optimized         100%   →   86%    -14% 📉
 
 ### Priority 1: Design Secure Architectures (56% - 7 incorrect) 🚨
 
-#### Key Topics That Need IMMEDIATE Review:
+---
 
-##### 1. CloudFront + ACM Certificate Region ⚠️ CRITICAL
-**Common Mistake:** Thinking certificate can be in any region
+#### ❌ CRITICAL: CloudFront + ACM Certificate Region Requirement
 
-**THE RULE (Memorize This!):**
+**📋 QUESTION CONTEXT:**
+You want to use a custom domain (www.example.com) with CloudFront distribution using HTTPS. Where must the ACM certificate be located?
+
+**Your Answer:** ❌ Any region where CloudFront edge location exists
+**Correct Answer:** ✅ **us-east-1 (N. Virginia) ONLY**
+
+**🔍 DETAILED EXPLANATION:**
+
+**THE GOLDEN RULE (MEMORIZE THIS!):**
+
 ```
-🔒 CloudFront + ACM Certificate:
-   ✅ MUST be in us-east-1 (N. Virginia) ONLY
-   
-   ❌ Cannot use certificates from:
-      - us-west-1, us-west-2
-      - eu-west-1, eu-central-1
-      - ap-southeast-1, ap-south-1
-      - Any other region
-   
-   ✅ ONLY us-east-1 works with CloudFront
+╔══════════════════════════════════════════════════════╗
+║  CloudFront + ACM Certificate MUST be in us-east-1  ║
+║                                                      ║
+║  ✅ ONLY us-east-1 (N. Virginia)                    ║
+║  ❌ us-west-2, eu-west-1, ap-southeast-1           ║
+║  ❌ Any other region = WILL NOT WORK               ║
+╚══════════════════════════════════════════════════════╝
 ```
 
-**Why us-east-1?**
-- CloudFront is a GLOBAL service
-- Control plane is in us-east-1
-- All CloudFront certificates validated against us-east-1 ACM
+**Why us-east-1 Only?**
 
-**Correct Setup Steps:**
-1. Request/Import certificate in **ACM us-east-1**
-2. Add alternate domain names (CNAMEs) to CloudFront distribution
-3. Associate ACM certificate (from us-east-1) with CloudFront
-4. Create Route 53 alias record → CloudFront distribution
+```
+┌────────────────────────────────────────────────────┐
+│        CLOUDFRONT ARCHITECTURE                     │
+├────────────────────────────────────────────────────┤
+│                                                     │
+│  CloudFront = GLOBAL SERVICE                       │
+│  ┌──────────────────────────────────┐              │
+│  │  Control Plane: us-east-1        │              │
+│  │  - Distribution configuration    │              │
+│  │  - Certificate validation        │              │
+│  │  - SSL/TLS termination config    │              │
+│  └──────────────────────────────────┘              │
+│           │                                         │
+│           │ Replicates config to edges             │
+│           ▼                                         │
+│  ┌────────────────────────────────────┐            │
+│  │   Edge Locations (400+ worldwide)   │            │
+│  │   - us-east-1, us-west-2            │            │
+│  │   - eu-west-1, ap-southeast-1       │            │
+│  │   - All reference us-east-1 ACM     │            │
+│  └────────────────────────────────────┘            │
+│                                                     │
+└────────────────────────────────────────────────────┘
+```
 
-**Study Resources:**
-- [Module 06: Networking - CloudFront](../06-Networking/README.md#cloudfront)
-- [Module 07: Security - ACM](../07-Security/README.md#certificate-manager)
+**Regional Service vs Global Service:**
+
+| Service | Type | Certificate Region | Reason |
+|---------|------|-------------------|--------|
+| **CloudFront** | Global | ✅ us-east-1 ONLY | Control plane in us-east-1 |
+| **ALB** | Regional | ✅ Same region as ALB | Each region independent |
+| **API Gateway (Edge)** | Global | ✅ us-east-1 ONLY | Edge-optimized like CloudFront |
+| **API Gateway (Regional)** | Regional | ✅ Same region as API | Regional endpoint |
+
+**Complete Setup Architecture:**
+
+```
+┌──────────────────────────────────────────────────────────┐
+│       CLOUDFRONT + CUSTOM DOMAIN SETUP                   │
+├──────────────────────────────────────────────────────────┤
+│                                                           │
+│  Step 1: ACM Certificate (us-east-1) ✅                  │
+│  ┌─────────────────────────────────────┐                 │
+│  │  Region: us-east-1                  │                 │
+│  │  Domain: www.example.com            │                 │
+│  │  Validation: DNS (CNAME)            │                 │
+│  │  Status: Issued                     │                 │
+│  └─────────────────────────────────────┘                 │
+│           │                                               │
+│           │ Associate with CloudFront                     │
+│           ▼                                               │
+│  Step 2: CloudFront Distribution                         │
+│  ┌─────────────────────────────────────┐                 │
+│  │  Alternate Domain Names (CNAMEs):   │                 │
+│  │    - www.example.com                │                 │
+│  │  SSL Certificate:                   │                 │
+│  │    - Custom SSL (ACM us-east-1)     │                 │
+│  │  Origin:                            │                 │
+│  │    - S3: mybucket.s3.amazonaws.com  │                 │
+│  │    - ALB: alb-123.us-west-2.elb...  │                 │
+│  │  Distribution Domain:               │                 │
+│  │    - d123abc.cloudfront.net         │                 │
+│  └─────────────────────────────────────┘                 │
+│           │                                               │
+│           │ Point domain to CloudFront                    │
+│           ▼                                               │
+│  Step 3: Route 53                                        │
+│  ┌─────────────────────────────────────┐                 │
+│  │  Record Name: www.example.com       │                 │
+│  │  Type: A (Alias)                    │                 │
+│  │  Alias Target:                      │                 │
+│  │    - d123abc.cloudfront.net         │                 │
+│  └─────────────────────────────────────┘                 │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Step-by-Step Implementation:**
+
+**Step 1: Request ACM Certificate in us-east-1**
+
+```bash
+# CRITICAL: Must be in us-east-1
+aws acm request-certificate \
+  --region us-east-1 \                    # ✅ MUST be us-east-1
+  --domain-name www.example.com \
+  --subject-alternative-names example.com \
+  --validation-method DNS
+```
+
+**Console Steps:**
+```
+1. Switch to us-east-1 region ✅ (CRITICAL!)
+2. ACM Console → Request Certificate
+3. Request a public certificate
+4. Domain names:
+   - www.example.com
+   - example.com (optional SAN)
+5. Validation method: DNS validation
+6. Review and request
+7. Create CNAME records in Route 53 (validation)
+8. Wait for status: Issued
+```
+
+**Step 2: Create CloudFront Distribution**
+
+```bash
+aws cloudfront create-distribution \
+  --distribution-config '{
+    "CallerReference": "unique-string-123",
+    "Aliases": {
+      "Quantity": 1,
+      "Items": ["www.example.com"]
+    },
+    "ViewerCertificate": {
+      "ACMCertificateArn": "arn:aws:acm:us-east-1:123456789012:certificate/abc-123",
+      "SSLSupportMethod": "sni-only",
+      "MinimumProtocolVersion": "TLSv1.2_2021"
+    },
+    "Origins": {
+      "Quantity": 1,
+      "Items": [{
+        "Id": "S3-origin",
+        "DomainName": "mybucket.s3.amazonaws.com",
+        "S3OriginConfig": {
+          "OriginAccessIdentity": ""
+        }
+      }]
+    },
+    "DefaultCacheBehavior": {
+      "TargetOriginId": "S3-origin",
+      "ViewerProtocolPolicy": "redirect-to-https",
+      "AllowedMethods": {
+        "Quantity": 2,
+        "Items": ["GET", "HEAD"]
+      }
+    }
+  }'
+```
+
+**Step 3: Create Route 53 Alias Record**
+
+```bash
+aws route53 change-resource-record-sets \
+  --hosted-zone-id Z123ABC \
+  --change-batch '{
+    "Changes": [{
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "www.example.com",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "Z2FDTNDATAQYW2",  # CloudFront hosted zone ID (always this)
+          "DNSName": "d123abc.cloudfront.net",
+          "EvaluateTargetHealth": false
+        }
+      }
+    }]
+  }'
+```
+
+**Common Mistake - Wrong Region:**
+
+```
+❌ WRONG: Certificate in us-west-2
+
+┌─────────────────────────────────┐
+│  Region: us-west-2 ❌           │
+│  ┌───────────────────────────┐  │
+│  │ ACM Certificate           │  │
+│  │ www.example.com           │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+         │
+         │ Try to associate
+         ▼
+┌─────────────────────────────────┐
+│  CloudFront Distribution        │
+│  ERROR: ❌                       │
+│  Certificate not found          │
+│  Must be in us-east-1           │
+└─────────────────────────────────┘
+
+Result: Distribution creation fails or certificate not selectable
+```
+
+**Correct Approach:**
+
+```
+✅ CORRECT: Certificate in us-east-1
+
+┌─────────────────────────────────┐
+│  Region: us-east-1 ✅           │
+│  ┌───────────────────────────┐  │
+│  │ ACM Certificate           │  │
+│  │ www.example.com           │  │
+│  │ Status: Issued            │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+         │
+         │ Associate successfully
+         ▼
+┌─────────────────────────────────┐
+│  CloudFront Distribution        │
+│  SUCCESS: ✅                     │
+│  - CNAME: www.example.com       │
+│  - Certificate: ACM us-east-1   │
+│  - HTTPS enabled                │
+└─────────────────────────────────┘
+         │
+         │ 
+         ▼
+┌─────────────────────────────────┐
+│  Edge Locations Worldwide       │
+│  - All locations use cert       │
+│  - HTTPS traffic secured        │
+└─────────────────────────────────┘
+```
+
+**Multi-Region Application Example:**
+
+```
+┌───────────────────────────────────────────────────────┐
+│         MULTI-REGION WITH CLOUDFRONT                  │
+├───────────────────────────────────────────────────────┤
+│                                                        │
+│  ACM Certificate (us-east-1) ✅                       │
+│  ┌──────────────────────┐                             │
+│  │ www.example.com      │                             │
+│  └──────────┬───────────┘                             │
+│             │                                          │
+│             ▼                                          │
+│  CloudFront Distribution                              │
+│  ┌────────────────────────────────┐                   │
+│  │ CNAME: www.example.com         │                   │
+│  │ Certificate: ACM us-east-1 ✅  │                   │
+│  └────────────────────────────────┘                   │
+│       │                    │                          │
+│       │                    │                          │
+│       ▼                    ▼                          │
+│  Origin 1              Origin 2                       │
+│  ┌──────────────┐    ┌──────────────┐                │
+│  │ ALB          │    │ ALB          │                │
+│  │ us-east-1    │    │ us-west-2    │                │
+│  │              │    │              │                │
+│  │ ACM cert:    │    │ ACM cert:    │                │
+│  │ us-east-1 ✅ │    │ us-west-2 ✅ │                │
+│  │ (Regional)   │    │ (Regional)   │                │
+│  └──────────────┘    └──────────────┘                │
+│                                                        │
+│  Note: ALB certs are regional, CloudFront is us-east-1│
+└───────────────────────────────────────────────────────┘
+```
+
+**Certificate Requirements Summary:**
+
+| Component | Certificate Region | Why |
+|-----------|-------------------|-----|
+| **CloudFront** | us-east-1 | Global service control plane |
+| **ALB in us-east-1** | us-east-1 | Regional service |
+| **ALB in us-west-2** | us-west-2 | Regional service |
+| **ALB in eu-west-1** | eu-west-1 | Regional service |
+| **API Gateway (Edge)** | us-east-1 | Global edge-optimized |
+| **API Gateway (Regional)** | Same region | Regional endpoint |
+
+**Troubleshooting:**
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Certificate not appearing in CloudFront dropdown | Certificate in wrong region | Create new certificate in us-east-1 |
+| "Certificate not found" error | Certificate not in us-east-1 | Switch to us-east-1 in ACM console |
+| HTTPS not working | Certificate not associated | Associate ACM certificate with distribution |
+| "Certificate pending validation" | DNS records not created | Add CNAME records for DNS validation |
+
+**🎯 KEY TAKEAWAYS:**
+- ✅ **CloudFront ACM certificate MUST be in us-east-1**
+- ✅ This is because CloudFront is a GLOBAL service with control plane in us-east-1
+- ✅ ALB certificates must be in the SAME region as the ALB
+- ✅ API Gateway Edge-optimized also requires us-east-1
+- ✅ Create certificate BEFORE creating CloudFront distribution
+- ❌ Cannot use certificates from any other region (us-west-2, eu-west-1, etc.)
+- ❌ Cannot change certificate region after creation
+
+**💡 MEMORY AIDS:**
+- "CF-E1 = CloudFront needs East-1"
+- "GLOBAL service = us-EAST-1 (where AWS started)"
+- "CloudFront Certificate = California Friends Eat-1 (E1 = East-1)"
+
+**Exam Traps to Avoid:**
+1. ❌ "Use certificate in the region closest to users" - WRONG
+2. ❌ "Use certificate in the same region as origin" - WRONG
+3. ❌ "Create certificate in multiple regions for redundancy" - WRONG
+4. ✅ "Always use us-east-1 for CloudFront" - CORRECT
+
+---
 
 ##### 2. S3 Cross-Account Access - Bucket Policies ⚠️
 **Common Mistake:** Thinking SCPs grant cross-account access
@@ -521,5 +809,5 @@ Good luck! You're making progress! 🚀📈
 
 ---
 
-[← Previous: Practice Test 1 Review](2026-03-02-Practice-Test-1-Review.md) | [Back to Exam Reviews](README.md) | [Next: Practice Test 3 Review →](2026-03-01-Practice-Test-3-Review.md)
+[← Previous: Practice Test 1 Review](Practice-Test-1-Review.md) | [Back to Exam Reviews](README.md) | [Next: Practice Test 3 Review →](Practice-Test-3-Review.md)
 

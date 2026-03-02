@@ -146,7 +146,610 @@ Pattern: Inconsistent performance across tests
 
 ## 🔴 Critical Questions Breakdown
 
-### Questions You Got WRONG (23 incorrect)
+### ❌ Question 2: CloudWatch Agent Aggregation Dimensions
+
+**📋 COMPLETE QUESTION:**
+A company runs a web application on an Auto Scaling group with 10-50 EC2 instances. The operations team wants to monitor custom application metrics (request latency, error rates) aggregated across all instances in the Auto Scaling group, not individual instances. What is the correct approach?
+
+**Options:**
+A. Enable detailed monitoring (1-minute intervals); CloudWatch automatically aggregates metrics by Auto Scaling group
+B. Install CloudWatch agent on instances with `aggregation_dimensions` parameter set to Auto Scaling group name
+C. Use CloudWatch Logs Insights to query application logs for aggregated metrics
+D. Create CloudWatch dashboard with math expressions to manually aggregate metrics
+
+**Topic:** Design High-Performing Architectures  
+**Your Answer:** ❌ A. Enable detailed monitoring; aggregation occurs by default
+**Correct Answer:** ✅ **B. Install CloudWatch agent with aggregation_dimensions parameter**
+
+**🔍 DETAILED EXPLANATION:**
+
+**Detailed Monitoring vs CloudWatch Agent:**
+
+```
+┌────────────────────────────────────────────────────────┐
+│     DETAILED MONITORING vs CLOUDWATCH AGENT            │
+├────────────────────────────────────────────────────────┤
+│                                                         │
+│  DETAILED MONITORING (Basic EC2 metrics)               │
+│  ┌──────────────────────────────────────┐              │
+│  │  What it does:                       │              │
+│  │  ├─ Changes frequency: 5 min → 1 min │              │
+│  │  ├─ Same metrics: CPU, Network, Disk │              │
+│  │  ├─ Per-instance granularity         │              │
+│  │  └─ Cost: $0.10/instance/month       │              │
+│  │                                      │              │
+│  │  What it DOESN'T do:                 │              │
+│  │  ❌ Custom application metrics        │              │
+│  │  ❌ Memory utilization                │              │
+│  │  ❌ ASG-level aggregation             │              │
+│  │  ❌ Application-specific metrics      │              │
+│  └──────────────────────────────────────┘              │
+│                                                         │
+│  CLOUDWATCH AGENT (Custom metrics + aggregation) ✅    │
+│  ┌──────────────────────────────────────┐              │
+│  │  What it does:                       │              │
+│  │  ✅ Custom application metrics        │              │
+│  │  ✅ Memory, disk space metrics        │              │
+│  │  ✅ ASG-level aggregation             │              │
+│  │  ✅ Multi-dimensional metrics         │              │
+│  │  ✅ Application logs → metrics        │              │
+│  │                                      │              │
+│  │  Configuration:                      │              │
+│  │  └─ aggregation_dimensions:          │              │
+│  │     ["AutoScalingGroupName"]         │              │
+│  └──────────────────────────────────────┘              │
+│                                                         │
+└────────────────────────────────────────────────────────┘
+```
+
+**How Aggregation Dimensions Work:**
+
+```
+┌──────────────────────────────────────────────────────────┐
+│        CLOUDWATCH AGENT AGGREGATION FLOW                 │
+├──────────────────────────────────────────────────────────┤
+│                                                           │
+│  Auto Scaling Group: web-app-asg                         │
+│  ┌────────────┬────────────┬────────────┬─────────────┐  │
+│  │ Instance 1 │ Instance 2 │ Instance 3 │ Instance... │  │
+│  │ i-001      │ i-002      │ i-003      │ i-004...050 │  │
+│  └─────┬──────┴─────┬──────┴─────┬──────┴──────┬──────┘  │
+│        │            │            │             │         │
+│        │ CloudWatch Agent        │             │         │
+│        ▼            ▼            ▼             ▼         │
+│  ┌─────────────────────────────────────────────────┐     │
+│  │  Custom Metrics (Per Instance):                 │     │
+│  │  ├─ request_latency: 45ms (i-001)              │     │
+│  │  ├─ request_latency: 52ms (i-002)              │     │
+│  │  ├─ request_latency: 48ms (i-003)              │     │
+│  │  ├─ error_rate: 0.5% (i-001)                   │     │
+│  │  ├─ error_rate: 0.3% (i-002)                   │     │
+│  │  └─ error_rate: 0.4% (i-003)                   │     │
+│  └──────────────────┬──────────────────────────────┘     │
+│                     │                                     │
+│                     │ aggregation_dimensions              │
+│                     │ ["AutoScalingGroupName"]            │
+│                     ▼                                     │
+│  ┌─────────────────────────────────────────────────┐     │
+│  │  Aggregated Metrics (ASG Level):                │     │
+│  │  ├─ request_latency (web-app-asg):             │     │
+│  │  │   - Average: 48.33ms                         │     │
+│  │  │   - Min: 45ms                                │     │
+│  │  │   - Max: 52ms                                │     │
+│  │  │   - Count: 3 instances                       │     │
+│  │  ├─ error_rate (web-app-asg):                   │     │
+│  │  │   - Average: 0.4%                            │     │
+│  │  │   - Sum: 1.2% (across instances)             │     │
+│  │  └─ Dimensions:                                 │     │
+│  │      {AutoScalingGroupName: "web-app-asg"}      │     │
+│  └─────────────────────────────────────────────────┘     │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+**CloudWatch Agent Configuration:**
+
+```json
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "cwagent"
+  },
+  "metrics": {
+    "namespace": "CustomApp",
+    "metrics_collected": {
+      "statsd": {
+        "service_address": ":8125",
+        "metrics_collection_interval": 60,
+        "metrics_aggregation_interval": 60
+      },
+      "mem": {
+        "measurement": [
+          {
+            "name": "mem_used_percent",
+            "rename": "MemoryUtilization",
+            "unit": "Percent"
+          }
+        ],
+        "metrics_collection_interval": 60
+      }
+    },
+    "aggregation_dimensions": [
+      ["AutoScalingGroupName"],                    // ✅ Aggregate by ASG
+      ["AutoScalingGroupName", "InstanceType"],    // ✅ Aggregate by ASG + Instance Type
+      ["InstanceId", "AutoScalingGroupName"]       // ✅ Per-instance + ASG context
+    ]
+  }
+}
+```
+
+**Understanding aggregation_dimensions:**
+
+| Configuration | Result | Use Case |
+|--------------|--------|----------|
+| `["AutoScalingGroupName"]` | Metrics aggregated for entire ASG | Overall ASG health monitoring |
+| `["AutoScalingGroupName", "InstanceType"]` | Separate aggregations per instance type within ASG | Mixed instance ASG analysis |
+| `["InstanceId"]` | Per-instance metrics only | Individual instance troubleshooting |
+| `[]` (empty) | All metrics combined without dimensions | Not recommended (loses context) |
+
+**Complete Setup Example:**
+
+**Step 1: IAM Role for EC2**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricData",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeTags",
+        "logs:PutLogEvents",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:DescribeLogStreams",
+        "autoscaling:Describe*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**Step 2: Launch Template UserData**
+```bash
+#!/bin/bash
+# Install CloudWatch agent
+wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+rpm -U ./amazon-cloudwatch-agent.rpm
+
+# Fetch ASG name from instance metadata
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+ASG_NAME=$(aws autoscaling describe-auto-scaling-instances \
+  --instance-ids $INSTANCE_ID \
+  --query "AutoScalingInstances[0].AutoScalingGroupName" \
+  --output text \
+  --region us-east-1)
+
+# Create CloudWatch agent config with ASG dimension
+cat > /opt/aws/amazon-cloudwatch-agent/etc/config.json << EOF
+{
+  "agent": {
+    "metrics_collection_interval": 60
+  },
+  "metrics": {
+    "namespace": "CustomApp",
+    "aggregation_dimensions": [
+      ["AutoScalingGroupName"]
+    ],
+    "append_dimensions": {
+      "AutoScalingGroupName": "$ASG_NAME",
+      "InstanceId": "$INSTANCE_ID"
+    },
+    "metrics_collected": {
+      "statsd": {
+        "service_address": ":8125"
+      }
+    }
+  }
+}
+EOF
+
+# Start CloudWatch agent
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/config.json
+```
+
+**Step 3: Application Code (Send Custom Metrics)**
+
+**Python Example:**
+```python
+import boto3
+import time
+from datetime import datetime
+
+cloudwatch = boto3.client('cloudwatch', region_name='us-east-1')
+
+def send_custom_metric(metric_name, value, unit='None'):
+    """Send custom metric to CloudWatch"""
+    cloudwatch.put_metric_data(
+        Namespace='CustomApp',
+        MetricData=[
+            {
+                'MetricName': metric_name,
+                'Value': value,
+                'Unit': unit,
+                'Timestamp': datetime.utcnow(),
+                'Dimensions': [
+                    {
+                        'Name': 'AutoScalingGroupName',
+                        'Value': 'web-app-asg'  # Retrieved from instance metadata
+                    },
+                    {
+                        'Name': 'InstanceId',
+                        'Value': 'i-1234567890abcdef0'  # Retrieved from instance metadata
+                    }
+                ]
+            }
+        ]
+    )
+
+# Usage in application
+def process_request():
+    start_time = time.time()
+    
+    # Process request...
+    
+    latency_ms = (time.time() - start_time) * 1000
+    send_custom_metric('request_latency', latency_ms, 'Milliseconds')
+    
+    # Send error rate if error occurred
+    if error_occurred:
+        send_custom_metric('error_count', 1, 'Count')
+```
+
+**Using StatsD (Simpler Alternative):**
+```python
+from statsd import StatsD
+
+statsd = StatsD('localhost', 8125)
+
+def process_request():
+    with statsd.timer('request_latency'):
+        # Process request...
+        pass
+    
+    if error_occurred:
+        statsd.incr('error_count')
+```
+
+**Step 4: CloudWatch Dashboard**
+```json
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["CustomApp", "request_latency", {"stat": "Average", "label": "Avg Latency"}],
+          ["...", {"stat": "p99", "label": "P99 Latency"}]
+        ],
+        "view": "timeSeries",
+        "region": "us-east-1",
+        "title": "Application Latency (ASG Aggregated)",
+        "period": 60,
+        "yAxis": {
+          "left": {
+            "label": "Milliseconds"
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["CustomApp", "error_count", {"stat": "Sum", "label": "Total Errors"}]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Error Count (Last Hour)",
+        "period": 3600
+      }
+    }
+  ]
+}
+```
+
+**Aggregation Behavior Comparison:**
+
+| Scenario | Without aggregation_dimensions | With aggregation_dimensions |
+|----------|-------------------------------|----------------------------|
+| **10 instances send metric** | 10 separate metric streams | 1 aggregated + 10 individual streams |
+| **CloudWatch query** | Must manually aggregate (math expression) | Already aggregated, ready to use |
+| **Dashboard complexity** | High (need complex queries) | Low (use aggregated metric directly) |
+| **Alarms** | Must create per-instance or use math | Single alarm on aggregated metric |
+| **Cost** | Same | Slightly higher (extra aggregated metrics) |
+
+**CloudWatch Alarm on Aggregated Metric:**
+```json
+{
+  "AlarmName": "HighRequestLatency",
+  "MetricName": "request_latency",
+  "Namespace": "CustomApp",
+  "Statistic": "Average",
+  "Period": 300,
+  "EvaluationPeriods": 2,
+  "Threshold": 100,
+  "ComparisonOperator": "GreaterThanThreshold",
+  "Dimensions": [
+    {
+      "Name": "AutoScalingGroupName",
+      "Value": "web-app-asg"
+    }
+  ],
+  "AlarmActions": [
+    "arn:aws:sns:us-east-1:123456789012:ops-team"
+  ]
+}
+```
+
+**🎯 KEY TAKEAWAYS:**
+- ✅ **aggregation_dimensions** = CloudWatch agent feature for ASG-level metrics
+- ✅ Detailed monitoring only changes frequency (5 min → 1 min), not metrics collected
+- ✅ Custom application metrics require CloudWatch agent
+- ✅ Agent can send both per-instance AND aggregated metrics simultaneously
+- ✅ Use `["AutoScalingGroupName"]` for ASG-wide monitoring
+- ❌ Detailed monitoring does NOT collect custom metrics
+- ❌ Detailed monitoring does NOT automatically aggregate by ASG
+
+**💡 MEMORY AID:** "AD-ASG = Aggregation Dimensions for Auto Scaling Groups"
+
+---
+
+### ❌ Question 8: ECS Deployment on AWS Outposts
+
+**📋 COMPLETE QUESTION:**
+A company needs to run containerized applications on-premises in their data center for ultra-low latency requirements (sub-5ms to local equipment). They want to use AWS services while maintaining local compute. The company already has AWS Outposts installed. What is the correct ECS deployment model?
+
+**Options:**
+A. Deploy ECS Fargate on AWS Outposts
+B. Deploy ECS on AWS Local Zones  
+C. Deploy EKS Anywhere with Fargate profiles
+D. Deploy ECS with EC2 launch type on AWS Outposts
+
+**Topic:** Design High-Performing Architectures  
+**Your Answer:** ❌ A. ECS Fargate on AWS Outposts
+**Correct Answer:** ✅ **D. ECS with EC2 launch type on AWS Outposts**
+
+**🔍 DETAILED EXPLANATION:**
+
+**AWS Outposts ECS Support:**
+
+```
+┌────────────────────────────────────────────────────────┐
+│        ECS ON AWS OUTPOSTS ARCHITECTURE                │
+├────────────────────────────────────────────────────────┤
+│                                                         │
+│  AWS Region (us-east-1)                                │
+│  ┌──────────────────────────────────────┐              │
+│  │  ECS Control Plane                   │              │
+│  │  ├─ Task definitions                 │              │
+│  │  ├─ Service configurations           │              │
+│  │  ├─ Cluster metadata                 │              │
+│  │  └─ API endpoints                    │              │
+│  └────────────┬─────────────────────────┘              │
+│               │                                         │
+│               │ Secure VPN/Direct Connect               │
+│               ▼                                         │
+│  ┌────────────────────────────────────────────────┐    │
+│  │  On-Premises Data Center                      │    │
+│  │  ┌──────────────────────────────────────────┐ │    │
+│  │  │  AWS Outposts Rack                       │ │    │
+│  │  │                                          │ │    │
+│  │  │  ✅ SUPPORTED: ECS EC2 Launch Type       │ │    │
+│  │  │  ┌────────────────────────────────────┐ │ │    │
+│  │  │  │  EC2 Instances                     │ │ │    │
+│  │  │  │  ├─ ECS Agent                      │ │ │    │
+│  │  │  │  ├─ Docker containers              │ │ │    │
+│  │  │  │  └─ Local compute/storage          │ │ │    │
+│  │  │  └────────────────────────────────────┘ │ │    │
+│  │  │                                          │ │    │
+│  │  │  ❌ NOT SUPPORTED: ECS Fargate           │ │    │
+│  │  │  └─ Fargate requires AWS infrastructure │ │    │
+│  │  │  └─ Limited/no Outposts support         │ │    │
+│  │  └──────────────────────────────────────────┘ │    │
+│  │                                                │    │
+│  │  Local Equipment (sub-5ms latency required)   │    │
+│  │  ├─ Manufacturing robots                      │    │
+│  │  ├─ IoT sensors                               │    │
+│  │  └─ Real-time control systems                 │    │
+│  └────────────────────────────────────────────────┘    │
+│                                                         │
+└────────────────────────────────────────────────────────┘
+```
+
+**ECS Launch Types Comparison:**
+
+| Feature | EC2 Launch Type | Fargate Launch Type |
+|---------|----------------|---------------------|
+| **Infrastructure Management** | You manage EC2 instances | AWS manages infrastructure |
+| **Pricing** | EC2 instance pricing | Per vCPU-second and memory |
+| **Control** | Full control over instances | Abstracted infrastructure |
+| **Outposts Support** | ✅ YES (fully supported) | ❌ NO (limited/not available) |
+| **Customization** | Install custom AMIs, agents | Limited to task definition |
+| **Networking** | VPC, ENI, security groups | VPC, ENI (awsvpc mode) |
+| **Use Case** | Specialized hardware, Outposts | Serverless, no infrastructure management |
+
+**Why Fargate on Outposts Doesn't Work:**
+
+```
+Fargate Requirements:
+┌─────────────────────────────────────────┐
+│  Fargate Needs:                         │
+│  ├─ AWS-managed compute capacity        │
+│  ├─ AWS-managed container orchestration │
+│  ├─ AWS-managed networking              │
+│  ├─ Regional availability zones         │
+│  └─ Elastic scaling infrastructure      │
+└─────────────────────────────────────────┘
+         │
+         │ These don't exist on Outposts
+         ▼
+┌─────────────────────────────────────────┐
+│  Outposts Reality:                      │
+│  ├─ Customer on-premises                │
+│  ├─ Fixed capacity (hardware limits)    │
+│  ├─ Customer-managed infrastructure     │
+│  └─ Requires EC2 launch type            │
+└─────────────────────────────────────────┘
+```
+
+**Complete ECS on Outposts Setup:**
+
+**Step 1: Prerequisites**
+- AWS Outposts rack installed and configured
+- Outpost connected to parent AWS region (VPN/Direct Connect)
+- Outpost subnet configured with local gateway route table
+
+**Step 2: Create ECS Cluster on Outposts**
+```bash
+# Create ECS cluster
+aws ecs create-cluster \
+  --cluster-name outposts-cluster \
+  --region us-east-1
+```
+
+**Step 3: Launch EC2 Instances on Outposts**
+```bash
+# Launch EC2 instances on Outposts subnet
+aws ec2 run-instances \
+  --image-id ami-0c55b159cbfafe1f0 \
+  --instance-type m5.large \
+  --subnet-id subnet-outposts-1234abcd \  # Outposts subnet
+  --iam-instance-profile Name=ecsInstanceRole \
+  --user-data file://ecs-user-data.sh \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=outposts-ecs-instance}]'
+```
+
+**Step 4: ECS User Data Script**
+```bash
+#!/bin/bash
+# Configure instance to join ECS cluster
+echo "ECS_CLUSTER=outposts-cluster" >> /etc/ecs/ecs.config
+echo "ECS_ENABLE_TASK_IAM_ROLE=true" >> /etc/ecs/ecs.config
+echo "ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true" >> /etc/ecs/ecs.config
+
+# Start ECS agent
+systemctl enable --now ecs
+```
+
+**Step 5: Task Definition**
+```json
+{
+  "family": "outposts-app",
+  "requiresCompatibilities": ["EC2"],  // ✅ EC2 launch type
+  "networkMode": "bridge",
+  "containerDefinitions": [
+    {
+      "name": "web-app",
+      "image": "nginx:latest",
+      "memory": 512,
+      "cpu": 256,
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80,
+          "protocol": "tcp"
+        }
+      ]
+    }
+  ],
+  "placementConstraints": [
+    {
+      "type": "memberOf",
+      "expression": "attribute:ecs.availability-zone == us-east-1-outposts-1"
+    }
+  ]
+}
+```
+
+**Step 6: Create ECS Service**
+```bash
+aws ecs create-service \
+  --cluster outposts-cluster \
+  --service-name outposts-web-service \
+  --task-definition outposts-app:1 \
+  --desired-count 3 \
+  --launch-type EC2 \
+  --placement-constraints type=memberOf,expression="attribute:ecs.availability-zone == us-east-1-outposts-1"
+```
+
+**Outposts vs Local Zones vs Wavelength:**
+
+| Service | Location | Latency | ECS Support | Use Case |
+|---------|----------|---------|-------------|----------|
+| **Outposts** | On-premises | Sub-5ms | EC2 launch type ✅ | Manufacturing, healthcare, local data residency |
+| **Local Zones** | Metro areas | Single-digit ms | EC2 and Fargate ✅ | Media, gaming, live video |
+| **Wavelength** | 5G edge | Ultra-low (5G) | EC2 launch type | Mobile apps, AR/VR, connected vehicles |
+| **Regular Region** | AWS data centers | Variable | EC2 and Fargate ✅ | Standard applications |
+
+**Decision Tree:**
+
+```
+Need to run ECS containers?
+│
+├─ On-premises (Outposts)?
+│   └─► ECS EC2 launch type ✅
+│       (Fargate not supported)
+│
+├─ Metro area low latency (Local Zones)?
+│   ├─► ECS EC2 launch type ✅
+│   └─► ECS Fargate ✅ (if supported in zone)
+│
+├─ 5G edge (Wavelength)?
+│   └─► ECS EC2 launch type ✅
+│       (Fargate not supported)
+│
+└─ Standard AWS Region?
+    ├─► ECS Fargate ✅ (serverless, recommended)
+    └─► ECS EC2 launch type ✅ (more control)
+```
+
+**Latency Requirements Guide:**
+
+| Latency Requirement | Solution |
+|---------------------|----------|
+| < 5ms | AWS Outposts (on-premises) |
+| < 10ms | AWS Local Zones (metro areas) |
+| < 20ms | AWS Wavelength (5G edge) |
+| < 50ms | Standard region with Direct Connect |
+| > 50ms | Standard region with internet |
+
+**🎯 KEY TAKEAWAYS:**
+- ✅ **AWS Outposts supports ECS EC2 launch type ONLY**
+- ✅ Fargate is NOT available on Outposts (requires AWS-managed infrastructure)
+- ✅ Outposts = On-premises AWS hardware for ultra-low latency (< 5ms)
+- ✅ Control plane remains in AWS region, data plane on Outposts
+- ✅ Use placement constraints to keep tasks on Outposts instances
+- ❌ Fargate requires serverless infrastructure not available on Outposts
+- ❌ Don't confuse Outposts (on-premises) with Local Zones (metro areas)
+
+**💡 MEMORY AID:** "Outposts = On-premises, EC2 Only (no Fargate)"
+
+**Exam Keywords:**
+- "On-premises" + "ultra-low latency" → Outposts ✅
+- "Outposts" + "ECS" → EC2 launch type only ✅
+- "Sub-5ms latency" → Outposts (not Local Zones) ✅
+- "Fargate on Outposts" → NOT SUPPORTED ❌
+
+---
 
 #### Design High-Performing Architectures (13 incorrect - 56.52% failure rate)
 
