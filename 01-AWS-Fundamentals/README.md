@@ -70,9 +70,10 @@ Consider these factors:
 
 **Key Characteristics:**
 - AZs are named: `us-east-1a`, `us-east-1b`, `us-east-1c`, etc.
-- Isolated from failures in other AZs
+- (Physically) Isolated from failures in other AZs
 - Enables high availability and fault tolerance
 - ~100 total AZs globally
+- AZ names map to different AZ IDs based on AWS Account
 
 **Multi-AZ Deployment Pattern:**
 ```
@@ -89,6 +90,34 @@ Region: us-east-1
 
 **Exam Tip**: 🎯 Always deploy across multiple AZs for high availability.
 
+High availability vs Fault tolerance
+```
+┌─────────────────────────────────────────────┐
+│         High availability            │
+├─────────────────────────────────────────────┤
+│   Design system to remain operational for long
+failure result in minimal downtime
+Redundncy and failover to quicly recover from system failures
+Goal: 99.99% uptime   
+└─────────────────────────────────────────────┘
+e.g. web app with load balancer/auto scaling
+
+┌─────────────────────────────────────────────┐
+│            Fault tolerance             │
+├─────────────────────────────────────────────┤
+│ System operate normally even if one or more components fail
+Handle failures automatically and seamlessly with no disruption for user
+
+GOAL: 100% uptime
+└─────────────────────────────────────────────┘
+```
+e.g. running db worloads using aurora
+
+
+RTO: maximum amout of time to resore a system oafter failire (how quicly system up again?)
+RPO: maximum data loss accepted in a certain time (how much data can we loose if system goes down?
+
+
 ### 1.3 Edge Locations
 
 **What is an Edge Location?**
@@ -96,6 +125,7 @@ Region: us-east-1
 - Used to cache content closer to end users
 - 400+ edge locations globally (more than Regions)
 - Part of the AWS Global Network
+- Leverage "Poins of Presence"
 
 **Use Cases:**
 - Content Delivery Network (CloudFront)
@@ -218,6 +248,7 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 **6 Pillars: CROPSS (Mnemonic: "CROPS + Security")**
 
 ### 3.2 Operational Excellence
+Does architecture work? Will continue to?
 
 **Design Principles:**
 - Perform operations as code
@@ -225,6 +256,7 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 - Refine operations procedures frequently
 - Anticipate failure
 - Learn from operational failures
+- optimize
 
 **Key Services:**
 - AWS CloudFormation
@@ -237,6 +269,7 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 - How do you design your workload for operational excellence?
 
 ### 3.3 Security
+Does the system work only as intented?
 
 **Design Principles:**
 - Implement strong identity foundation
@@ -258,7 +291,10 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 - How do you securely operate your workload?
 - How do you manage identities and permissions?
 
+- E.g. maintaining traceability, applying security layers, encrypt data in transit and rest..
+
 ### 3.4 Reliability
+Will system work consistently and recover quickly?
 
 **Design Principles:**
 - Automatically recover from failure
@@ -277,7 +313,10 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 - How do you design your workload to adapt to changes in demand?
 - How do you implement your workload to withstand component failures?
 
+- E.g. automating recovery from failure using built in feature , testing recovery , scaling horiz. to respond to when system is more used
+
 ### 3.5 Performance Efficiency
+Remove bottlenecks, reduce waste
 
 **Design Principles:**
 - Democratize advanced technologies
@@ -285,6 +324,8 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 - Use serverless architectures
 - Experiment more often
 - Consider mechanical sympathy
+- Use correct resources
+- Maintain efficiency with scaling demands
 
 **Key Services:**
 - AWS Lambda
@@ -296,14 +337,19 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 - How do you select appropriate resource types and sizes?
 - How do you monitor your resources to ensure performance?
 
+- E.g. use serverless architectures to scale, deploy globally aws regions to duplicate closer to use 
+
 ### 3.6 Cost Optimization
+Are you spending only what you have to?
+
 
 **Design Principles:**
 - Implement cloud financial management
-- Adopt a consumption model
+- Adopt a consumption model --> Taking advantage of discounte per volume?
 - Measure overall efficiency
-- Stop spending on undifferentiated heavy lifting
+- Stop spending on undifferentiated heavy lifting --> let AWS handle it
 - Analyze and attribute expenditure
+- Deliver business value at lowest price
 
 **Key Services:**
 - AWS Cost Explorer
@@ -317,6 +363,7 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 - How do you monitor usage and cost?
 
 ### 3.7 Sustainability
+Minimize environmental impacts
 
 **Design Principles:**
 - Understand your impact
@@ -325,11 +372,21 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 - Anticipate and adopt new, more efficient offerings
 - Use managed services
 - Reduce downstream impact
+- Reduce energy consumption
+- Increase efficiency
+- Maximize benefits from provisioned resources
+- Minimize total resources required
 
 **Key Services:**
 - EC2 Auto Scaling
 - Serverless services
 - AWS Graviton processors
+
+- E.g. understad impact
+
+### 3.8 Well architected tool
+Measures infrastructure created and see how closely aligned with aWS best practicies is. 
+Gives also recommendation to improve and design reliable, secure, efficient solutions
 
 **Exam Tip**: 🎯 Know the 6 pillars by heart. Use mnemonic: **"CROPSS"** or **"SCROPP"**
 
@@ -338,7 +395,7 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 ## 4. Shared Responsibility Model
 
 ### 4.1 Concept
-
+"Security and compliance is a shared responsability"
 **"Security OF the cloud vs. Security IN the cloud"**
 
 ```
@@ -351,7 +408,11 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 │ • Operating System, Network, Firewall       │
 │ • Client-Side Encryption & Authentication   │
 │ • Server-Side Encryption (File System/Data)│
-│ • Network Traffic Protection                │
+│ • Network Traffic Protection
+Encryption of customer data
+Backing up customer data
+controlling access and authorization
+manage os, network config, firewalls...            │
 └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────┐
@@ -362,7 +423,8 @@ The AWS Well-Architected Framework helps you understand best practices for desig
 │ • Regions, AZs, Edge Locations             │
 │ • Compute, Storage, Database, Networking    │
 │ • Software (Hypervisor, Host OS)           │
-│ • Physical Security of Data Centers         │
+│ • Physical Security of Data Centers
+   │
 └─────────────────────────────────────────────┘
 ```
 
