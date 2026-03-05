@@ -42,6 +42,8 @@ By the end of this module, you will be able to:
 ### 1.1 What is IAM?
 
 **AWS Identity and Access Management** allows you to:
+- Create Users and grant permisssions to those users
+- Create Groups and Roles
 - Control WHO can access your AWS resources (Authentication)
 - Control WHAT they can do (Authorization)
 - Manage access centrally
@@ -124,6 +126,8 @@ Default output format: json
 - Rotate regularly (security best practice)
 - Never embed in code or commit to version control
 - Use IAM roles instead when possible
+- only viewable at creation time
+- You must use both acvcess key ID and secret access key to authneticate
 
 **Exam Tip**: 🎯 NEVER share access keys. Use roles for EC2 instead of embedding keys.
 
@@ -173,7 +177,7 @@ Organization Structure:
 ## 4. IAM Roles
 
 ### 4.1 What is an IAM Role?
-
+type iam identity with specific permissions
 A set of permissions that can be assumed by trusted entities.
 
 **Key Differences from Users:**
@@ -181,6 +185,7 @@ A set of permissions that can be assumed by trusted entities.
 - Temporary security credentials
 - Can be assumed by users, applications, or services
 - Use cases: EC2 instances, Lambda functions, cross-account access
+- Control permissions via permissions policies and trust policies
 
 ### 4.2 Role Components
 
@@ -191,7 +196,7 @@ A set of permissions that can be assumed by trusted entities.
   "Statement": [{
     "Effect": "Allow",
     "Principal": {
-      "Service": "ec2.amazonaws.com"
+      "Service": "ec2.amazonaws.com" <-- principal that can assume this role
     },
     "Action": "sts:AssumeRole"
   }]
@@ -255,6 +260,8 @@ Access AWS services securely
 
 ### 5.1 What is an IAM Policy?
 
+Object in aws that when associated with an entity or resources define their permissions
+
 JSON documents that define permissions.
 
 **Policy Types:**
@@ -266,12 +273,13 @@ JSON documents that define permissions.
 
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
+  "Version": "2012-10-17", <--- required, version of the policy language
+  "Statement": [ <--- list containing permissions
     {
-      "Sid": "AllowS3ListBucket",
-      "Effect": "Allow",
-      "Action": "s3:ListBucket",
+      "Sid": "AllowS3ListBucket", <--- identifier for the statement in the policy
+      "Effect": "Allow", 
+      "Action": "s3:ListBucket", <--- which api calls are you allowing or deny
+                               <--- there could be a principal, iam identity that you apply the policy to
       "Resource": "arn:aws:s3:::my-bucket",
       "Condition": {
         "StringLike": {
@@ -293,6 +301,15 @@ JSON documents that define permissions.
   - **Condition**: Optional conditions for when policy applies
 
 ### 5.3 Policy Examples
+
+Identity-based policy: attached to iam identities to gran permissions
+By default, permissions are implicitly denied
+
+Managed policy: attachable, standlone policies that are reusable
+Inline policies: added directly to a signle IAM Identity
+
+Resource-based policy: attached to aws resources. All resource-based policies are inline policies
+You can allow another AWS account ast the principal
 
 **Read-Only S3 Access:**
 ```json
@@ -455,7 +472,7 @@ aws sts get-session-token \
 
 8. **Monitor Activity**
    - Use CloudTrail for API logging
-   - Review IAM credential reports
+   - Review IAM credential reports (Reports listing all users in account, status of MFA/pass/acces keys, useful for auditing 
    - Set up alerts for unusual activity
 
 ### 7.2 AWS Managed Policies to Know
@@ -562,6 +579,9 @@ aws sts assume-role \
 **Exam Tip**: 🎯 Federation = external identities accessing AWS. Always uses STS for temporary credentials.
 
 ---
+
+EC2 instance profiles
+AWS resource used to pass an iam role to an ec2 instance to allow ec2 
 
 ## 🎯 Exam Tips
 
