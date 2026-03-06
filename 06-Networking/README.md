@@ -15,10 +15,17 @@ Networking is a critical component of AWS Solutions Architecture. This module co
 ## 1. Amazon VPC (Virtual Private Cloud)
 
 ### What is VPC?
-- **Logically isolated network** in AWS cloud
+- **Logically isolated network** in AWS cloud where you can define your own network
 - **Regional resource** (spans all AZs in region)
 - Control IP address range, subnets, route tables, gateways
 - Maximum **5 VPCs per region** (soft limit)
+- There is a default, automatically created VPC. Use only for testing
+
+Creating VPCs:
+- Select IP CIDR block (range of ip address you want to use in the vpc)
+- Private ipv4 cidr blocks are required and range from /16 to /28
+- IPV6 optional
+- CIDRS must be from RFC 1918 range
 
 ### CIDR (Classless Inter-Domain Routing)
 - Method for IP address allocation
@@ -31,12 +38,20 @@ Networking is a critical component of AWS Solutions Architecture. This module co
 - `172.16.0.0/12` → 172.16.0.0 to 172.31.255.255
 - `192.168.0.0/16` → 192.168.0.0 to 192.168.255.255
 
+- Remember: ipv4 range is made up of 32 total bits
+- each dot separation is 8 bits
+- /16 indicates the amount of bts USED for the subnet mask, so /16 take the first two numbers
+- To calculate the total available ip addresses, take 2^( /# remaining bits)
+-  /# remaining bits = 32 - used bits (e.g. /16 = 16 used)
+-  In subnet: Total - 5 because 5 ip addresses are reserved
+
 ### VPC Components
 
 #### Subnets
+Range of ip addresses within vpc for hosting resources
 - **AZ-specific** (within one AZ)
-- **Public Subnet**: Has route to Internet Gateway
-- **Private Subnet**: No route to internet
+- **Public Subnet**: Has direct route to Internet via internet Gateway
+- **Private Subnet**: No direct route to internet. Require NAT device to connect to internet
 - **AWS reserves 5 IPs** in each subnet (first 4 + last 1)
   - Example in `10.0.0.0/24`:
     - `10.0.0.0`: Network address
@@ -44,12 +59,17 @@ Networking is a critical component of AWS Solutions Architecture. This module co
     - `10.0.0.2`: DNS server
     - `10.0.0.3`: Reserved for future use
     - `10.0.0.255`: Broadcast (not supported, but reserved)
+- subnets can communicate across AZs but with a COST
 
 #### Internet Gateway (IGW)
 - Allow communication between VPC and internet
 - **One IGW per VPC**
-- Horizontally scaled, redundant, highly available
+- Horizontally scaled (automatic scale), redundant, highly available
 - Performs NAT for instances with public IPv4
+- Supports both ipv4 and ipv6
+- enable public subnet resources to connect to internet
+- Give a target in vpc for internet-routable traffic
+- Only attachable to 1 vpc
 
 #### NAT Gateway
 - **Managed NAT service**
@@ -75,6 +95,11 @@ Networking is a critical component of AWS Solutions Architecture. This module co
 - Each subnet must be associated with route table
 - **Main route table**: Default for subnets without explicit association
 
+- Destination: Range of ip addresss where you want to direct traffic towards
+- Target: different gateway/netowork interfaces/other connections where destination traffic should go
+- Local route: vpc-bound traffic, within vpc
+- Assocaition: associate subnets with a rout table
+
 Example Public Subnet Route Table:
 ```
 Destination       Target
@@ -88,6 +113,7 @@ Destination       Target
 10.0.0.0/16      local
 0.0.0.0/0        nat-xxxxx
 ```
+<img width="1709" height="1031" alt="image" src="https://github.com/user-attachments/assets/afa42e15-a6c1-441d-a449-216925df3d32" />
 
 ---
 
