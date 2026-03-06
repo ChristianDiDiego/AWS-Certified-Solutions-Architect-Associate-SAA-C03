@@ -231,7 +231,11 @@ Resources:
 
 ### 2.5 AWS CloudShell
 
+
 **Browser-Based Shell:**
+- Interact with aws resources
+- Pre authenticated using console credentials
+- Pre-installed software and tools
 - Pre-configured with AWS CLI and tools
 - No installation required
 - 1 GB of storage per region
