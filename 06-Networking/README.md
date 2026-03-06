@@ -60,6 +60,10 @@ Range of ip addresses within vpc for hosting resources
     - `10.0.0.3`: Reserved for future use
     - `10.0.0.255`: Broadcast (not supported, but reserved)
 - subnets can communicate across AZs but with a COST
+- <img width="1843" height="963" alt="image" src="https://github.com/user-attachments/assets/cb99f6e3-3d36-43c9-83be-e60e87b6a7c3" />
+<img width="1640" height="841" alt="image" src="https://github.com/user-attachments/assets/f681b61d-c04e-4006-9109-9c70581deed8" />
+
+
 
 #### Internet Gateway (IGW)
 - Allow communication between VPC and internet
@@ -70,6 +74,8 @@ Range of ip addresses within vpc for hosting resources
 - enable public subnet resources to connect to internet
 - Give a target in vpc for internet-routable traffic
 - Only attachable to 1 vpc
+- <img width="1682" height="900" alt="image" src="https://github.com/user-attachments/assets/ff8c2928-8767-43cf-8615-5a187eaee6d8" />
+
 
 #### NAT Gateway
 - **Managed NAT service**
@@ -120,12 +126,19 @@ Destination       Target
 ## 2. VPC Security
 
 ### Security Groups (SG)
+Controls traffic allowed to reach and leave the resources they are associated with
 - **Stateful** firewall (return traffic automatically allowed)
 - Operates at **instance level**
 - **Allow rules only** (no deny rules)
 - All inbound traffic **denied by default**
 - All outbound traffic **allowed by default**
 - Can reference other security groups
+- All rules get evaluated before logic is applied. most restrictive wins.
+
+- <img width="1732" height="862" alt="image" src="https://github.com/user-attachments/assets/6ebdc68d-3333-48d5-8360-7405701af32c" />
+<img width="1630" height="902" alt="image" src="https://github.com/user-attachments/assets/93c4567f-23ae-4d68-a7a1-e63c58bf54a9" />
+
+
 
 Example Security Group Rules:
 ```
@@ -142,12 +155,20 @@ All traffic All       All     0.0.0.0/0
 ```
 
 ### Network ACLs (NACLs)
-- **Stateless** firewall (return traffic must be explicitly allowed)
+Network Access Control Lists
+allows or deny specific inbound or outbound treaffic at SUBNET LEVEL
+- **Stateless** (explictly define both inbound and outbound rules) firewall (return traffic must be explicitly allowed) AT SUBNET LEVEL
 - Operates at **subnet level**
 - **Allow AND Deny rules**
-- Rules evaluated in **number order** (lowest first)
+- Rules evaluated in **number order** (lowest first) (list of ascending numbers, first match wins)
 - Default NACL **allows all** inbound/outbound
 - Custom NACL **denies all** inbound/outbound by default
+- <img width="1796" height="916" alt="image" src="https://github.com/user-attachments/assets/33412a59-7840-4fba-8c7c-73b8e0eb80dd" />
+
+Ephemeral ports: short lived transport protocol ports that OS allocate for client side transmission then ythey connect to a server
+Ranges differ within OS
+(Example: Inbound http connections use port 80, but outbound connection will be on a port betweeen 1024-65535
+
 
 **NACL vs Security Group**:
 | Feature | NACL | Security Group |
@@ -172,6 +193,23 @@ Rule #  Type        Protocol  Port    Destination     Allow/Deny
 100     Custom      TCP       1024-65535  0.0.0.0/0   ALLOW (ephemeral)
 *       All traffic All       All     0.0.0.0/0       DENY
 ```
+<img width="1636" height="925" alt="image" src="https://github.com/user-attachments/assets/1079b24f-38b1-4db9-8fe9-18d294f034c3" />
+
+
+### DHCP Option Sets
+Group of network settings used by resources in VPC
+Allow to controll:
+ - dns servers
+ - domain names
+ - ntp servers
+ - want dns resolution turned on or off in vpc
+
+Can be associated with multiple vpcs, but each vpc can not have more than one associated
+
+Each AWS Region has a default dhcp option set
+Each VPC uses the default if not other specified
+You can not modify a dhcp option once created, you have to create a new one
+
 
 ---
 
